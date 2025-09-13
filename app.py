@@ -1,5 +1,3 @@
-# Trigger rebuild for apt-packages
-
 
 import streamlit as st
 import fitz  # PyMuPDF
@@ -161,4 +159,5 @@ if __name__ == "__main__":
         
         st.subheader("Answer : ")
         st.write(answer)
+
 
