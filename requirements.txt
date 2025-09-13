@@ -1,0 +1,9 @@
+streamlit
+PyMuPDF
+opencv-python-headless
+numpy
+Pillow
+paddleocr
+faiss-cpu
+langchain
+openai
