@@ -1,7 +1,6 @@
 streamlit
 PyMuPDF
 opencv-python
-
 numpy
 Pillow
 paddleocr
