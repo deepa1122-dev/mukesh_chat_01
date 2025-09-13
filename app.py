@@ -24,66 +24,48 @@ uploaded_pdf = st.file_uploader("Upload your PDF", type=["pdf"])
 if uploaded_pdf is not None:
     doc = fitz.open(stream=uploaded_pdf.read(), filetype="pdf")
 
-OUTPUT_TEXT_FILE = "hybrid_ocr_output.txt"
+    OUTPUT_TEXT_FILE = "hybrid_ocr_output.txt"
 
-# --- Initialize PaddleOCR ---
-print("🚀 Initializing PaddleOCR...")
-ocr = PaddleOCR(use_angle_cls=True, lang='en')  # You can set lang='en+ch' if needed
-with open(OUTPUT_TEXT_FILE, "w", encoding="utf-8") as out_file:
-    for page_num, page in enumerate(doc):
-        out_file.write(f"\n\n=== Page {page_num + 1} ===\n")
+    # --- Initialize PaddleOCR ---
+    print("🚀 Initializing PaddleOCR...")
+    ocr = PaddleOCR(use_angle_cls=True, lang='en')  # or use_textline_orientation=True
 
-        # --- Extract Normal Text ---
-        out_file.write("\n--- Normal Text ---\n")
-        normal_text = page.get_text("text").strip()
-        if normal_text:
-            out_file.write(normal_text + "\n")
-        else:
-            out_file.write("(No selectable text found)\n")
+    with open(OUTPUT_TEXT_FILE, "w", encoding="utf-8") as out_file:
+        for page_num, page in enumerate(doc):
+            out_file.write(f"\n\n=== Page {page_num + 1} ===\n")
+            
+            # Extract normal text
+            normal_text = page.get_text("text").strip()
+            out_file.write(normal_text if normal_text else "(No selectable text found)\n")
 
-        # --- Extract Images + OCR ---  ✅ THIS MUST BE INSIDE
-        out_file.write("\n--- OCR on Images (as Table if possible) ---\n")
-        image_list = page.get_images(full=True)
+            # Extract images + OCR
+            image_list = page.get_images(full=True)
+            if not image_list:
+                out_file.write("(No images found)\n")
+            else:
+                for img_index, img in enumerate(image_list):
+                    try:
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_pil = Image.open(BytesIO(image_bytes)).convert("RGB")
+                        image_np = np.array(image_pil)
 
-        if not image_list:
-            out_file.write("(No images found)\n")
-        else:
-            for img_index, img in enumerate(image_list):
-                try:
-                    xref = img[0]
-                    base_image = doc.extract_image(xref)
-                    image_bytes = base_image["image"]
-                    image_pil = Image.open(BytesIO(image_bytes)).convert("RGB")
-                    image_np = np.array(image_pil)
-
-                    # Run OCR
-                    result = ocr.ocr(image_np, cls=True)
-
-                    if result:
-                        table_rows = []
-                        for line in result:
-                            if line:
-                                row_text = []
-                                for entry in line:
-                                    if entry and len(entry) == 2:
-                                        box, (text, confidence) = entry
-                                        row_text.append(text.strip())
+                        result = ocr.ocr(image_np, cls=True)
+                        if result:
+                            table_rows = []
+                            for line in result:
+                                row_text = [entry[1][0].strip() for entry in line if entry and len(entry) == 2]
                                 if row_text:
                                     table_rows.append(" | ".join(row_text))
-
-                        if table_rows:
-                            for row in table_rows:
-                                out_file.write(row + "\n")
+                            out_file.write("\n".join(table_rows) + "\n" if table_rows else "(No structured rows found)\n")
                         else:
-                            out_file.write("(No structured rows found)\n")
-                    else:
-                        out_file.write("(No OCR result found in image)\n")
+                            out_file.write("(No OCR result found in image)\n")
+                    except Exception as e:
+                        out_file.write(f"(Error processing image {img_index + 1}: {e})\n")
 
-                except Exception as e:
-                    out_file.write(f"(Error processing image {img_index + 1}: {e})\n")
+    print(f"✅ Hybrid extraction complete. Saved to {OUTPUT_TEXT_FILE}")
 
-print("\n✅ Hybrid text + OCR extraction complete.")
-print(f"📁 Results saved to: {OUTPUT_TEXT_FILE}")
 
 def preprocess_text(documents):
     processed_docs = []
@@ -160,6 +142,7 @@ if __name__ == "__main__":
         
         st.subheader("Answer : ")
         st.write(answer)
+
 
 
 
