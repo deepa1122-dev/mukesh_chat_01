@@ -7,4 +7,3 @@ paddleocr
 faiss-cpu
 langchain
 openai
-
